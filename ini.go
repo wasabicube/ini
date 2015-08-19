@@ -315,11 +315,6 @@ func (c *ConfSet) Duration(sectionName, name string, value time.Duration) *time.
 }
 
 func (c *ConfSet) parseOne(sectionName string, line string) error {
-	// Handle comment lines
-	if (line[0] == ';') || (line[0] == '#') {
-		return nil
-	}
-
 	s, sectionExists := c.sections[sectionName]
 	parts := strings.SplitN(line, "=", 2)
 	name, value := parts[0], parts[1]
@@ -355,6 +350,11 @@ func (c *ConfSet) Parse() error {
 		}
 
 		if len(line) == 0 {
+			continue
+		}
+
+		// Handle comment lines
+		if (line[0] == ';') {
 			continue
 		}
 
