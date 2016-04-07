@@ -30,11 +30,17 @@ func (b *boolValue) Set(s string) error {
 	return err
 }
 
-func (b *boolValue) Get() interface{} { return bool(*b) }
+func (b *boolValue) Get() interface{} {
+	return bool(*b)
+}
 
-func (b *boolValue) String() string { return fmt.Sprintf("%v", *b) }
+func (b *boolValue) String() string {
+	return fmt.Sprintf("%v", *b)
+}
 
-func (b *boolValue) IsBoolFlag() bool { return true }
+func (b *boolValue) IsBoolFlag() bool {
+	return true
+}
 
 // optional interface to indicate boolean flags that can be
 // supplied without "=value" text
@@ -57,9 +63,13 @@ func (i *intValue) Set(s string) error {
 	return err
 }
 
-func (i *intValue) Get() interface{} { return int(*i) }
+func (i *intValue) Get() interface{} {
+	return int(*i)
+}
 
-func (i *intValue) String() string { return fmt.Sprintf("%v", *i) }
+func (i *intValue) String() string {
+	return fmt.Sprintf("%v", *i)
+}
 
 // -- int64 Value
 type int64Value int64
@@ -75,9 +85,13 @@ func (i *int64Value) Set(s string) error {
 	return err
 }
 
-func (i *int64Value) Get() interface{} { return int64(*i) }
+func (i *int64Value) Get() interface{} {
+	return int64(*i)
+}
 
-func (i *int64Value) String() string { return fmt.Sprintf("%v", *i) }
+func (i *int64Value) String() string {
+	return fmt.Sprintf("%v", *i)
+}
 
 // -- uint Value
 type uintValue uint
@@ -93,9 +107,13 @@ func (i *uintValue) Set(s string) error {
 	return err
 }
 
-func (i *uintValue) Get() interface{} { return uint(*i) }
+func (i *uintValue) Get() interface{} {
+	return uint(*i)
+}
 
-func (i *uintValue) String() string { return fmt.Sprintf("%v", *i) }
+func (i *uintValue) String() string {
+	return fmt.Sprintf("%v", *i)
+}
 
 // -- uint64 Value
 type uint64Value uint64
@@ -111,9 +129,13 @@ func (i *uint64Value) Set(s string) error {
 	return err
 }
 
-func (i *uint64Value) Get() interface{} { return uint64(*i) }
+func (i *uint64Value) Get() interface{} {
+	return uint64(*i)
+}
 
-func (i *uint64Value) String() string { return fmt.Sprintf("%v", *i) }
+func (i *uint64Value) String() string {
+	return fmt.Sprintf("%v", *i)
+}
 
 // -- string Value
 type stringValue string
@@ -128,9 +150,13 @@ func (s *stringValue) Set(val string) error {
 	return nil
 }
 
-func (s *stringValue) Get() interface{} { return string(*s) }
+func (s *stringValue) Get() interface{} {
+	return string(*s)
+}
 
-func (s *stringValue) String() string { return fmt.Sprintf("%s", *s) }
+func (s *stringValue) String() string {
+	return fmt.Sprintf("%s", *s)
+}
 
 // -- float64 Value
 type float64Value float64
@@ -146,9 +172,13 @@ func (f *float64Value) Set(s string) error {
 	return err
 }
 
-func (f *float64Value) Get() interface{} { return float64(*f) }
+func (f *float64Value) Get() interface{} {
+	return float64(*f)
+}
 
-func (f *float64Value) String() string { return fmt.Sprintf("%v", *f) }
+func (f *float64Value) String() string {
+	return fmt.Sprintf("%v", *f)
+}
 
 // -- time.Duration Value
 type durationValue time.Duration
@@ -164,9 +194,13 @@ func (d *durationValue) Set(s string) error {
 	return err
 }
 
-func (d *durationValue) Get() interface{} { return time.Duration(*d) }
+func (d *durationValue) Get() interface{} {
+	return time.Duration(*d)
+}
 
-func (d *durationValue) String() string { return (*time.Duration)(d).String() }
+func (d *durationValue) String() string {
+	return (*time.Duration)(d).String()
+}
 
 // Value is the interface to the dynamic value stored in a flag.
 // (The default value is represented as a string.)
@@ -314,6 +348,76 @@ func (c *ConfSet) Duration(sectionName, name string, value time.Duration) *time.
 	return p
 }
 
+func (c *ConfSet) parseAndAdd(section *Section, sectionName string, line string) error {
+	parts := strings.SplitN(line, "=", 2)
+	name, value := parts[0], parts[1]
+	name = strings.TrimSpace(name)
+	value = strings.TrimSpace(value)
+
+	if (*section).Vals == nil {
+		(*section).Vals = make(map[string]*Item)
+	}
+
+	val := new(stringValue)
+	val.Set(value)
+
+	item := &Item{sectionName, name, val}
+	(*section).Vals[name] = item
+
+	return nil
+}
+
+func (c *ConfSet) ReadSection(sectionName string) (*Section, error) {
+	s := new(Section)
+	currentSection := GLOBAL_SECTION
+
+	fp, err := os.Open(c.fname)
+	if err != nil {
+		return nil, err
+	}
+	reader := bufio.NewReader(fp)
+
+	for {
+		line, _, err := reader.ReadLine()
+
+		if err == io.EOF {
+			break
+		}
+
+		if len(line) == 0 {
+			continue
+		}
+
+		// Handle comment lines
+		if (line[0] == ';') {
+			continue
+		}
+
+		l := strings.TrimSpace(string(line))
+
+		// parse section
+		if l[0] == '[' {
+			l := strings.TrimSpace(l)
+			if l[len(l) - 1] == ']' {
+				currentSection = l[1 : len(l) - 1]
+				continue
+			}
+		}
+
+		// parse item
+		if currentSection == sectionName {
+			s.Name = sectionName
+			err = c.parseAndAdd(s, currentSection, l)
+
+			if err != nil {
+				return s, err
+			}
+		}
+	}
+
+	return s, nil
+}
+
 func (c *ConfSet) parseOne(sectionName string, line string) error {
 	s, sectionExists := c.sections[sectionName]
 	parts := strings.SplitN(line, "=", 2)
@@ -363,8 +467,8 @@ func (c *ConfSet) Parse() error {
 		// parse section
 		if l[0] == '[' {
 			l := strings.TrimSpace(l)
-			if l[len(l)-1] == ']' {
-				currentSection = l[1 : len(l)-1]
+			if l[len(l) - 1] == ']' {
+				currentSection = l[1 : len(l) - 1]
 				continue
 			}
 		}
