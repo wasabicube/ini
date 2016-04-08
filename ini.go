@@ -2,6 +2,7 @@ package ini
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -368,6 +369,7 @@ func (c *ConfSet) parseAndAdd(section *Section, sectionName string, line string)
 }
 
 func (c *ConfSet) ReadSection(sectionName string) (*Section, error) {
+	found := false
 	s := new(Section)
 	currentSection := GLOBAL_SECTION
 
@@ -406,6 +408,7 @@ func (c *ConfSet) ReadSection(sectionName string) (*Section, error) {
 
 		// parse item
 		if currentSection == sectionName {
+			found = true
 			s.Name = sectionName
 			err = c.parseAndAdd(s, currentSection, l)
 
@@ -415,7 +418,13 @@ func (c *ConfSet) ReadSection(sectionName string) (*Section, error) {
 		}
 	}
 
-	return s, nil
+	if !found {
+		err = errors.New(fmt.Sprintf("Section '%s' not found", sectionName))
+	} else {
+		err = nil
+	}
+
+	return s, err
 }
 
 func (c *ConfSet) parseOne(sectionName string, line string) error {
